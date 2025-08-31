@@ -1,0 +1,24 @@
+-std=c99
+-Wpedantic
+-Wall
+-Wextra
+-Waggregate-return
+-Wbad-function-cast
+-Wcast-align
+-Wcast-qual
+-Wfloat-equal
+-Wformat=2
+-Wlogical-op
+-Wmissing-include-dirs
+-Wnested-externs
+-Wpointer-arith
+-Wredundant-decls
+-Wsequence-point
+-Wshadow
+-Wswitch
+-Wundef
+-Wunreachable-code
+-Wwrite-strings
+-Wno-discarded-qualifiers
+./src/chmap.c
+-o ./bin/release

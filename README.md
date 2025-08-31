@@ -1,0 +1,3 @@
+- simple hashmap 
+- robinhood open addressing w/ linear probing
+- stores values
