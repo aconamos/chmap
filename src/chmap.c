@@ -12,22 +12,44 @@
 #define MAX_LOAD_FACTOR 0.9f
 
 
-static const char* SIPHASH_KEY = "abcdef9876543210";
+static const char* SIPHASH_KEY = "abcdef9876543211";
 
 struct __psl_ind { 
     uint64_t index; 
     size_t psl;
 };
 
-struct __entry*
-__bubble_up(struct chmap *map, const uint64_t key, struct __psl_ind loc) {
-    struct __entry working_entry = map->__translation_array[loc.index];
+/**
+ * Takes an entry and a location and tries to insert it at the location, performing
+ * robinhood shuffling if necessary to maintain low PSL or whatever.
+ */
+void
+__bubble_up(struct chmap *map, const struct __entry inentry, size_t ind) {
     struct __entry buffer_entry;
-    struct __entry entry_to_insert = {
-        .has_entry = 1,
-        .keyword = key,
-        .psl = loc.psl,
-    };
+    struct __entry grabbed_entry = inentry;
+
+    do {
+        struct __entry working_entry = map->__translation_array[ind];
+
+        if (working_entry.has_entry == 0) {
+            // We've encountered an empty spot, and can insert and jump ship.
+            map->__translation_array[ind] = grabbed_entry;
+            grabbed_entry.has_entry = 0;
+            return;
+        }
+
+        if (working_entry.psl < grabbed_entry.psl) {
+            // Take from the rich, and give to the poor.
+            // TODO: Redudant copy here that we can get rid of
+            buffer_entry = working_entry;
+            printf("bubble %lu", ind);
+            map->__translation_array[ind] = grabbed_entry;
+            grabbed_entry = buffer_entry;
+        }
+
+        grabbed_entry.psl++;
+        ind = ind + 1 % map->__array_size;
+    } while (grabbed_entry.has_entry);
 }
 
 /**
@@ -109,6 +131,7 @@ chmap_put(
     siphash(key, keysize, SIPHASH_KEY, (uint8_t*)&outword, 8);
 
     struct __psl_ind insert_at = __address_array(map, outword);
+    printf("index is %2lu; psl is %2lu; hash is %lu \n", insert_at.index, insert_at.psl, outword);
     const struct __entry looking_at = map->__translation_array[insert_at.index];
 
     if (looking_at.has_entry == 0) {
@@ -135,8 +158,21 @@ chmap_put(
         memcpy(ba_ptr, item, itemsize);
     } else {
         // We need to now swap the two out, and put the next one somewhere else down in the array.
+        size_t bak = map->__used_size;
+        map->__used_size = (map->__used_size + 1) % map->__array_size;
+        struct __entry new_entry = {
+            1,
+            insert_at.psl,
+            .backing_array_key = bak,
+            .keyword = outword,
+        };
+
+        void *ba_ptr = (size_t*)map->__backing_array + bak * itemsize;
+
+        memcpy(ba_ptr, item, itemsize);
+
+        __bubble_up(map, new_entry, insert_at.index);
     }
-    printf("idx is: %2lu; psl: %2lu; hash is %lu \n", insert_at.index, insert_at.psl, outword);
 
     return 0;
 }
