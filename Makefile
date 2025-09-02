@@ -1,58 +1,92 @@
-CC ?= gcc
+ifeq ($(OS),Windows_NT)
+  ifeq ($(shell uname -s),) # not in a bash-like shell
+	CLEANUP = del /F /Q
+	MKDIR = mkdir
+  else # in a bash-like shell, like msys
+	CLEANUP = rm -f
+	MKDIR = mkdir -p
+  endif
+	TARGET_EXTENSION=exe
+else
+	CLEANUP = rm -f
+	MKDIR = mkdir -p
+	TARGET_EXTENSION=out
+endif
 
-SRC_DIR = ./src
-OUT_DIR = ./bin
+.PHONY: clean
+.PHONY: test
 
+PATHU = unity/src/
+PATHS = src/
+PATHT = test/
+PATHB = build/
+PATHD = build/depends/
+PATHO = build/objs/
+PATHR = build/results/
 
-CFLAGS += -pthread
-CFLAGS += -std=c99 
-CFLAGS += -Wpedantic
-CFLAGS += -Wall
-CFLAGS += -Wextra
-# https://lists.gnu.org/archive/html/bug-gnulib/2012-09/msg00006.html
-# > In the GNU apps I'm familiar with (Emacs, coreutils, ...) we simply disable -Waggregate-return. 
-# > It a completely anachronistic warning, since its motivation was to support backwards 
-# > compatibility with C compilers that did not allow returning structures. Those compilers are 
-# > long dead and are no longer of practical concern.
-CFLAGS += -Wno-aggregate-return
-CFLAGS += -Wbad-function-cast
-CFLAGS += -Wcast-align
-CFLAGS += -Wcast-qual
-CFLAGS += -Wfloat-equal
-CFLAGS += -Wformat=2
-CFLAGS += -Wlogical-op
-CFLAGS += -Wmissing-include-dirs
-CFLAGS += -Wnested-externs
-CFLAGS += -Wpointer-arith
-CFLAGS += -Wredundant-decls
-CFLAGS += -Wsequence-point
-CFLAGS += -Wshadow
-CFLAGS += -Wswitch
-CFLAGS += -Wundef
-CFLAGS += -Wunreachable-code
-CFLAGS += -Wwrite-strings
-CFLAGS += -Wno-discarded-qualifiers
+BUILD_PATHS = $(PATHB) $(PATHD) $(PATHO) $(PATHR)
 
-CFILES = $(SRC_DIR)/*.c
+SRCT = $(wildcard $(PATHT)*.c)
 
-all: outdir release debug asan
+COMPILE=gcc -c
+LINK=gcc bin/siphash.o
+DEPEND=gcc -MM -MG -MF
+CFLAGS=-I. -I$(PATHU) -I$(PATHS) -DTEST
 
-release: .
-	$(CC) -O2 $(CFLAGS) \
-	$(CFILES) -o $(OUT_DIR)/$@
+RESULTS = $(patsubst $(PATHT)Test%.c,$(PATHR)Test%.txt,$(SRCT) )
 
-debug: .
-	$(CC) -O0 -DDEBUG -g $(CFLAGS) \
-	$(CFILES) -o $(OUT_DIR)/$@
+PASSED = `grep -s PASS $(PATHR)*.txt`
+FAIL = `grep -s FAIL $(PATHR)*.txt`
+IGNORE = `grep -s IGNORE $(PATHR)*.txt`
 
-asan: .
-	$(CC) -O0 -g -fsanitize=address -fsanitize=undefined -fsanitize=leak $(CFLAGS) \
-	$(CFILES) -o $(OUT_DIR)/$@
+test: siphash $(BUILD_PATHS) $(RESULTS)
+	@echo "-----------------------\nIGNORES:\n-----------------------"
+	@echo "$(IGNORE)"
+	@echo "-----------------------\nFAILURES:\n-----------------------"
+	@echo "$(FAIL)"
+	@echo "-----------------------\nPASSED:\n-----------------------"
+	@echo "$(PASSED)"
+	@echo "\nDONE"
 
-outdir:
-	mkdir -p $(OUT_DIR)
+siphash:
+	$(COMPILE) $(CFLAGS) src/siphash.c -o bin/siphash.o
+
+$(PATHR)%.txt: $(PATHB)%.$(TARGET_EXTENSION)
+	-./$< > $@ 2>&1
+
+$(PATHB)Test%.$(TARGET_EXTENSION): $(PATHO)Test%.o $(PATHO)%.o $(PATHO)unity.o #$(PATHD)Test%.d
+	$(LINK) -o $@ $^
+
+$(PATHO)%.o:: $(PATHT)%.c
+	$(COMPILE) $(CFLAGS) $< -o $@
+
+$(PATHO)%.o:: $(PATHS)%.c
+	$(COMPILE) $(CFLAGS) $< -o $@
+
+$(PATHO)%.o:: $(PATHU)%.c $(PATHU)%.h
+	$(COMPILE) $(CFLAGS) $< -o $@
+
+$(PATHD)%.d:: $(PATHT)%.c
+	$(DEPEND) $@ $<
+
+$(PATHB):
+	$(MKDIR) $(PATHB)
+
+$(PATHD):
+	$(MKDIR) $(PATHD)
+
+$(PATHO):
+	$(MKDIR) $(PATHO)
+
+$(PATHR):
+	$(MKDIR) $(PATHR)
 
 clean:
-	rm -rf $(OUT_DIR)/*
+	$(CLEANUP) $(PATHO)*.o
+	$(CLEANUP) $(PATHB)*.$(TARGET_EXTENSION)
+	$(CLEANUP) $(PATHR)*.txt
 
-.PHONY: all clean outdir
+.PRECIOUS: $(PATHB)Test%.$(TARGET_EXTENSION)
+.PRECIOUS: $(PATHD)%.d
+.PRECIOUS: $(PATHO)%.o
+.PRECIOUS: $(PATHR)%.txt
