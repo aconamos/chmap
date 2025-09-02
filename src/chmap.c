@@ -12,7 +12,7 @@
 #define MAX_LOAD_FACTOR 0.9f
 
 
-static const char* SIPHASH_KEY = "abcdef9876543211";
+static const char* SIPHASH_KEY = "abcdef9876543210";
 
 struct __psl_ind { 
     uint64_t index; 
@@ -42,13 +42,12 @@ __bubble_up(struct chmap *map, const struct __entry inentry, size_t ind) {
             // Take from the rich, and give to the poor.
             // TODO: Redudant copy here that we can get rid of
             buffer_entry = working_entry;
-            printf("bubble %lu", ind);
             map->__translation_array[ind] = grabbed_entry;
             grabbed_entry = buffer_entry;
         }
 
         grabbed_entry.psl++;
-        ind = ind + 1 % map->__array_size;
+        ind = (ind + 1) % map->__array_size;
     } while (grabbed_entry.has_entry);
 }
 
@@ -131,7 +130,6 @@ chmap_put(
     siphash(key, keysize, SIPHASH_KEY, (uint8_t*)&outword, 8);
 
     struct __psl_ind insert_at = __address_array(map, outword);
-    printf("index is %2lu; psl is %2lu; hash is %lu \n", insert_at.index, insert_at.psl, outword);
     const struct __entry looking_at = map->__translation_array[insert_at.index];
 
     if (looking_at.has_entry == 0) {
@@ -187,8 +185,13 @@ chmap_get(
 
     siphash(key, keysize, SIPHASH_KEY, (uint8_t*)&outword, 8);
 
-    struct __psl_ind loc = __address_array(map, outword);
-    struct __entry maybe = map->__translation_array[loc.index];
+    size_t working_index = outword % map->__array_size;
+
+    struct __entry maybe = map->__translation_array[working_index];
+    while (maybe.has_entry && maybe.keyword != outword) {
+        working_index = (working_index + 1) % map->__array_size;
+        maybe = map->__translation_array[working_index];
+    };
 
     if (maybe.has_entry) {
         return ((size_t*)map->__backing_array + maybe.backing_array_key * map->__item_size);
@@ -205,15 +208,11 @@ debug_map(
         struct __entry entry = map->__translation_array[i];
 
         if (entry.has_entry)
-        printf("\
-entry.backing_array_key: %lu\n\
-entry.has_entry: %d\n\
-entry.keyword: %lu\n\
-entry.psl: %lu\n\n",
-        entry.backing_array_key, 
-        entry.has_entry, 
-        entry.keyword, 
-        entry.psl
+        printf("bak %2lu; psl: %2lu; tind: %2lu; val: %lu;\n",
+            entry.backing_array_key, 
+            entry.psl,
+            i,
+            *((size_t*)map->__backing_array + entry.backing_array_key * map->__item_size)
         );
     }
 }
