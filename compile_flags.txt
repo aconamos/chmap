@@ -20,5 +20,9 @@
 -Wunreachable-code
 -Wwrite-strings
 -Wno-discarded-qualifiers
+-Iunity/src/ 
+-Isrc/ 
+-Iunity/extras/fixture/src  
+-Iunity/extras/memory/src
 ./src/chmap.c
 -o ./bin/release
