@@ -14,9 +14,6 @@ struct __entry {
  * The main struct for a map. Contains the backing array, data sizes, and the array length.
  */
 struct chmap {
-    // TODO: key_size might be pointless
-    size_t __key_size;
-
     // The size of any given item. This is needed for backing array allocation and indexing.
     size_t __item_size;
 
@@ -42,7 +39,7 @@ struct chmap {
  * 
  * @param item_size size of data that will be stored in this hashmap
  */
-const struct chmap * chmap_new(const size_t item_size);
+struct chmap * chmap_new(const size_t item_size);
 
 /**
  * Puts an item into the given map at the given key. Returns 1 if an item was overwritten,
@@ -52,8 +49,7 @@ int chmap_put(
     struct chmap * map, 
     const void * key, 
     const size_t keysize, 
-    const void * item, 
-    const size_t itemsize
+    const void * item 
 );
 
 /**

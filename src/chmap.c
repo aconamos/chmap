@@ -9,6 +9,7 @@
 #include "chmap.h"
 
 #define DEFAULT_BACKING_ARRAY_LENGTH 20
+#define ARRAY_GROW_FACTOR 2.0f
 #define MAX_LOAD_FACTOR 0.9f
 
 
@@ -18,6 +19,20 @@ struct __psl_ind {
     uint64_t index; 
     size_t psl;
 };
+
+/* FORWARD DECLS */
+
+void debug_map_params(struct chmap * map);
+
+/**
+ * This puts in an item using a hash (instead of the key).
+ */
+static int
+chmap_put_hash(
+    struct chmap * map,
+    const uint64_t hash,
+    const void * item
+);
 
 /**
  * Takes an entry and a location and tries to insert it at the location, performing
@@ -34,7 +49,6 @@ bubble_up(struct chmap * map, const struct __entry inentry, size_t ind) {
         if (working_entry.has_entry == 0) {
             // We've encountered an empty spot, and can insert and jump ship.
             map->__translation_array[ind] = grabbed_entry;
-            grabbed_entry.has_entry = 0;
             return;
         }
 
@@ -48,7 +62,8 @@ bubble_up(struct chmap * map, const struct __entry inentry, size_t ind) {
 
         grabbed_entry.psl++;
         ind = (ind + 1) % map->__array_size;
-    } while (grabbed_entry.has_entry);
+        printf("bubble (psl: %lu, idx: %lu)\n", grabbed_entry.psl, ind);
+    } while (grabbed_entry.has_entry == 1);
 }
 
 /**
@@ -95,15 +110,50 @@ init_translation_array(
     return entries;
 }
 
+static void
+grow_map(struct chmap * map) 
+{
+    debug_map_params(map);
+    printf("growing\n");
+    size_t new_size = map->__array_size * ARRAY_GROW_FACTOR;
+    size_t old_size = map->__array_size;
 
-const struct chmap *
+    void * old_backing_array = map->__backing_array;
+    struct __entry * old_translation_array = map->__translation_array;
+
+    void * new_backing_array = malloc(map->__item_size * new_size);
+    struct __entry * new_translation_array = init_translation_array(new_size);
+    
+    // Instead of writing some jank code, we'll just reuse the put item operation.
+    // This requires us to act like there's no items in the array.
+    map->__backing_array = new_backing_array;
+    map->__translation_array = new_translation_array;
+    map->__array_size = new_size;
+    // This is so we can reset backing array indices.
+    map->__used_size = 0;
+
+    debug_map_params(map);
+    for (size_t i = 0; i < old_size; i++) {
+        struct __entry entry = old_translation_array[i];
+        if (entry.has_entry) {
+            void * ba_ptr = ((size_t*)old_backing_array) + (entry.backing_array_key * map->__item_size);
+            printf("\n");
+            printf("rehashing entry at index %lu (val %c); bak: %lu\n", i, *(char*)ba_ptr, entry.backing_array_key);
+            chmap_put_hash(map, entry.keyword, ba_ptr);
+        }
+    }
+
+    // free(old_backing_array);
+    // free(old_translation_array);
+}
+
+struct chmap *
 chmap_new(
     const size_t item_size
 ) {
     void * backing_array = malloc(sizeof(item_size) * DEFAULT_BACKING_ARRAY_LENGTH);
     struct chmap * map = malloc(sizeof(struct chmap));
 
-    map->__key_size = 0;
     map->__item_size = item_size;
     map->__used_size = 0;
     map->__array_size = DEFAULT_BACKING_ARRAY_LENGTH;
@@ -113,34 +163,26 @@ chmap_new(
     return map;
 }
 
-int
-chmap_put(
+static int
+chmap_put_hash(
     struct chmap * map,
-    const void * key,
-    const size_t keysize,
-    const void * item,
-    const size_t itemsize
+    const uint64_t hash,
+    const void * item
 ) {
-    // This is used in place of a uint8_t[8] to provide the same 8 bytes
-    // but in a format easier to use as a key.
-    uint64_t outword;
-
-    assert(map->__used_size < map->__array_size * MAX_LOAD_FACTOR);
-
-    siphash(key, keysize, SIPHASH_KEY, (uint8_t*)&outword, 8);
-
-    struct __psl_ind insert_at = address_array(map, outword);
+    struct __psl_ind insert_at = address_array(map, hash);
     const struct __entry looking_at = map->__translation_array[insert_at.index];
+    const size_t itemsize = map->__item_size;
 
     if (looking_at.has_entry == 0) {
         // We found an empty spot - put it in, no fuss
         size_t bak = map->__used_size;
-        map->__used_size = (map->__used_size + 1) % map->__array_size;
+        printf("(empty) bak: %lu;\n", bak);
+        map->__used_size = (map->__used_size + 1);
         struct __entry new_entry = {
             1,
             insert_at.psl,
             .backing_array_key = bak,
-            .keyword = outword,
+            .keyword = hash,
         };
 
         
@@ -149,20 +191,24 @@ chmap_put(
         void * ba_ptr = (size_t*)map->__backing_array + bak * itemsize;
 
         memcpy(ba_ptr, item, itemsize);
-    } else if (looking_at.keyword == outword) {
+    } else if (looking_at.keyword == hash) {
         // This key already is associated - overwrite it
         void * ba_ptr = (size_t*)map->__backing_array + looking_at.backing_array_key * itemsize;
 
         memcpy(ba_ptr, item, itemsize);
+
+        printf("put (overwrite) \n");
+        return 1;
     } else {
         // We need to now swap the two out, and put the next one somewhere else down in the array.
         size_t bak = map->__used_size;
-        map->__used_size = (map->__used_size + 1) % map->__array_size;
+        printf("(bubbling) bak: %lu;\n", bak);
+        map->__used_size = (map->__used_size + 1);
         struct __entry new_entry = {
             1,
             insert_at.psl,
             .backing_array_key = bak,
-            .keyword = outword,
+            .keyword = hash,
         };
 
         void * ba_ptr = (size_t*)map->__backing_array + bak * itemsize;
@@ -172,7 +218,30 @@ chmap_put(
         bubble_up(map, new_entry, insert_at.index);
     }
 
+    printf("put (not overwrite) \n");
     return 0;
+}
+
+int
+chmap_put(
+    struct chmap * map,
+    const void * key,
+    const size_t keysize,
+    const void * item
+) {
+    // This is used in place of a uint8_t[8] to provide the same 8 bytes
+    // but in a format easier to use as a key.
+    uint64_t outword;
+
+    printf("putting\n");
+    if (map->__used_size >= map->__array_size * MAX_LOAD_FACTOR) {
+        printf("hnnnrgh i'm gonna grow\n");
+        grow_map(map);
+    }
+
+    siphash(key, keysize, SIPHASH_KEY, (uint8_t*)&outword, 8);
+
+    return chmap_put_hash(map, outword, item);
 }
 
 const void *
@@ -208,11 +277,24 @@ debug_map(
         struct __entry entry = map->__translation_array[i];
 
         if (entry.has_entry)
-        printf("bak %2lu; psl: %2lu; tind: %2lu; val: %lu;\n",
+        printf("bak %3lu; psl: %3lu; tind: %3lu; val: %lu;\n",
             entry.backing_array_key, 
             entry.psl,
             i,
             *((size_t*)map->__backing_array + entry.backing_array_key * map->__item_size)
         );
     }
+}
+
+void
+debug_map_params(
+    struct chmap * map
+) {
+    printf("item_size: %lu\nused_size: %lu\narray_size: %lu\ntarray_addr: %lu\nbarray_addr: %lu\n",
+        map->__item_size,
+        map->__used_size,
+        map->__array_size,
+        map->__translation_array,
+        map->__backing_array
+    );
 }

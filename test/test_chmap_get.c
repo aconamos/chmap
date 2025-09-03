@@ -11,7 +11,7 @@ void chmap_get_char(void) {
     char put = 'A';
     char key = 'B';
 
-    chmap_put(map, &key, sizeof(char), &put, sizeof(char));
+    chmap_put(map, &key, sizeof(char), &put);
 
     const char * got = chmap_get(map, &key, sizeof(char));
 

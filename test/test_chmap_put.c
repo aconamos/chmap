@@ -12,7 +12,7 @@ void chmap_put_char(void) {
     char put = 'A';
     char key = 'B';
 
-    chmap_put(map, &key, sizeof(char), &put, sizeof(char));
+    chmap_put(map, &key, sizeof(char), &put);
 }
 
 void chmap_put_overwrite(void) {
@@ -21,11 +21,11 @@ void chmap_put_overwrite(void) {
     char put = 'A';
     char key = 'B';
 
-    chmap_put(map, &key, sizeof(char), &put, sizeof(char));
+    chmap_put(map, &key, sizeof(char), &put);
 
     put = 'Z';
 
-    chmap_put(map, &key, sizeof(char), &put, sizeof(char));
+    chmap_put(map, &key, sizeof(char), &put);
 
     const char * got = chmap_get(map, &key, sizeof(char));
 
@@ -38,7 +38,7 @@ void chmap_put_many(void) {
     for (char key = 'A'; key < 'L'; key = (char) key + 1) {
         char val = key + 25;
 
-        chmap_put(map, &key, 1, &val, sizeof(char));
+        chmap_put(map, &key, 1, &val);
     }
 
     for (char key = 'A'; key < 'L'; key = (char) key + 1) {
@@ -54,7 +54,7 @@ void chmap_put_large_key(void) {
     const char * key = "According to all known laws of aviation, there is no way a bee should be able to fly.";
     char val = 'a';
 
-    chmap_put(map, key, strlen(key), &val, sizeof(char));
+    chmap_put(map, key, strlen(key), &val);
 
     const char * got = chmap_get(map, key, strlen(key));
 
@@ -72,8 +72,7 @@ void chmap_put_bad_string_val(void) {
     chmap_put(
         map,
         &key, sizeof(char),
-        "According to all known laws of aviation, there is no way a bee should be able to fly.",
-        50
+        "According to all known laws of aviation, there is no way a bee should be able to fly."
     );
 
     const char * got = chmap_get(map, &key, sizeof(char));
@@ -92,8 +91,7 @@ void chmap_put_string_val(void) {
     chmap_put(
         map,
         &key, sizeof(char),
-        value,
-        value_len
+        value
     );
 
     const char * got = chmap_get(map, &key, sizeof(char));

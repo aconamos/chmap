@@ -10,20 +10,30 @@ void tearDown(void) {}
 void chmap_put_can_grow(void) {
     struct chmap * map = chmap_new(sizeof(char));
 
-    for (char key = 'A'; key < 'z'; key = (char) key + 1) {
+    for (char key = 'A'; key < 'Z'; key = (char) key + 1) {
         char val = key + 25;
 
-        chmap_put(map, &key, 1, &val, sizeof(char));
+        printf("associating: %c -> %c\n", key, val);
+
+        chmap_put(map, &key, sizeof(char), &val);
     }
 
-    for (char key = 'A'; key < 'z'; key = (char) key + 1) {
-        char *got = chmap_get(map, &key, 1);
+    printf("done putting\n");
+
+    debug_map(map);
+
+    for (char key = 'A'; key < 'Z'; key = (char) key + 1) {
+        printf("getting %c\n", key);
+        char * got = chmap_get(map, &key, sizeof(char));
+
+        TEST_ASSERT_NOT_NULL_MESSAGE(got, "got a NULL pointer when we shouldn't have!");
 
         TEST_ASSERT_EQUAL_UINT8(key + 25, *got);
     }
 }
 
 int main(void) {
+    printf("this has to work\n");
     UNITY_BEGIN();
     RUN_TEST(chmap_put_can_grow);
     return UNITY_END();

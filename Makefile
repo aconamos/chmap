@@ -37,7 +37,7 @@ CFLAGS=-I. -I$(PATHU) -I$(PATHS) -DTEST
 RESULTS = $(patsubst $(PATHT)test_%.c,$(PATHR)test_%.txt,$(SRCT) )
 
 PASSED = `grep -s PASS $(PATHR)*.txt`
-FAIL = `grep -s -E 'FAIL|Aborted' $(PATHR)*.txt`
+FAIL = `grep -s -E 'FAIL|Aborted|core dumped' $(PATHR)*.txt`
 IGNORE = `grep -s IGNORE $(PATHR)*.txt`
 
 test: $(BUILD_PATHS) siphash $(RESULTS)
