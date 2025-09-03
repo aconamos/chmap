@@ -79,7 +79,7 @@ address_array(struct chmap *map, const uint64_t key)
     return find_spot(map, key, psl, working_index);
 }
 
-static const struct __entry *
+static struct __entry *
 init_translation_array(
     const size_t numentries
 ) {
