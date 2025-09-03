@@ -1,6 +1,4 @@
-// #include "../unity/src/unity.h"
-// #include "../unity/src/unity_internals.h"
-#include "../unity/src/unity_fixture.h"
+#include "../unity/src/unity.h"
 #include "../src/chmap.h"
 #include <stdint.h>
 #include <string.h>
@@ -134,15 +132,9 @@ void chmap_put_string_val(void) {
     const char * got = chmap_get(map, &key, sizeof(char));
 
     TEST_ASSERT_EQUAL_STRING(value, got);
-
-    TEST_PASS();
 }
 
-TEST_GROUP(Dangerous);
-TEST_SETUP(Dangerous) {} 
-TEST_TEAR_DOWN(Dangerous) {}
-
-TEST(Dangerous, chmap_put_can_grow) {
+void chmap_put_can_grow(void) {
     struct chmap * map = chmap_new(sizeof(char));
 
     for (char key = 'A'; key < 'z'; key = (char) key + 1) {
@@ -156,12 +148,6 @@ TEST(Dangerous, chmap_put_can_grow) {
 
         TEST_ASSERT_EQUAL_UINT8(key + 25, *got);
     }
-
-    TEST_PASS();
-}
-
-TEST_GROUP_RUNNER(Dangerous) {
-    RUN_TEST_CASE(Dangerous, chmap_put_can_grow);
 }
 
 int
@@ -178,6 +164,6 @@ main(void) {
     RUN_TEST(chmap_put_large_key);
     RUN_TEST(chmap_put_bad_string_val);
     RUN_TEST(chmap_put_string_val);
-    RUN_TEST_GROUP(Dangerous);
+    RUN_TEST(chmap_put_can_grow);
     return UNITY_END();
 }

@@ -19,12 +19,13 @@ endif
 PATHU = unity/src/
 PATHS = src/
 PATHT = test/
+PATHBIN = bin/
 PATHB = build/
 PATHD = build/depends/
 PATHO = build/objs/
 PATHR = build/results/
 
-BUILD_PATHS = $(PATHB) $(PATHD) $(PATHO) $(PATHR)
+BUILD_PATHS = $(PATHB) $(PATHD) $(PATHO) $(PATHR) $(PATHBIN)
 
 SRCT = $(wildcard $(PATHT)*.c)
 
@@ -39,7 +40,7 @@ PASSED = `grep -s PASS $(PATHR)*.txt`
 FAIL = `grep -s FAIL $(PATHR)*.txt`
 IGNORE = `grep -s IGNORE $(PATHR)*.txt`
 
-test: siphash $(BUILD_PATHS) $(RESULTS)
+test: $(BUILD_PATHS) siphash $(RESULTS)
 	@echo "-----------------------\nIGNORES:\n-----------------------"
 	@echo "$(IGNORE)"
 	@echo "-----------------------\nFAILURES:\n-----------------------"
@@ -54,7 +55,7 @@ siphash:
 $(PATHR)%.txt: $(PATHB)%.$(TARGET_EXTENSION)
 	-./$< -v -t > $@ 2>&1
 
-$(PATHB)Test%.$(TARGET_EXTENSION): $(PATHO)Test%.o $(PATHO)%.o $(PATHO)unity.o $(PATHO)unity_fixture.o #$(PATHD)Test%.d
+$(PATHB)Test%.$(TARGET_EXTENSION): $(PATHO)Test%.o $(PATHO)%.o $(PATHO)unity.o #$(PATHD)Test%.d
 	$(LINK) -o $@ $^
 
 $(PATHO)%.o:: $(PATHT)%.c
@@ -80,6 +81,9 @@ $(PATHO):
 
 $(PATHR):
 	$(MKDIR) $(PATHR)
+
+$(PATHBIN):
+	$(MKDIR) $(PATHBIN)
 
 clean:
 	$(CLEANUP) $(PATHO)*.o
