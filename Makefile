@@ -34,10 +34,10 @@ LINK=gcc bin/siphash.o
 DEPEND=gcc -MM -MG -MF
 CFLAGS=-I. -I$(PATHU) -I$(PATHS) -DTEST
 
-RESULTS = $(patsubst $(PATHT)Test%.c,$(PATHR)Test%.txt,$(SRCT) )
+RESULTS = $(patsubst $(PATHT)test_%.c,$(PATHR)test_%.txt,$(SRCT) )
 
 PASSED = `grep -s PASS $(PATHR)*.txt`
-FAIL = `grep -s FAIL $(PATHR)*.txt`
+FAIL = `grep -s -E 'FAIL|Aborted' $(PATHR)*.txt`
 IGNORE = `grep -s IGNORE $(PATHR)*.txt`
 
 test: $(BUILD_PATHS) siphash $(RESULTS)
@@ -55,7 +55,7 @@ siphash:
 $(PATHR)%.txt: $(PATHB)%.$(TARGET_EXTENSION)
 	-./$< -v -t > $@ 2>&1
 
-$(PATHB)Test%.$(TARGET_EXTENSION): $(PATHO)Test%.o $(PATHO)%.o $(PATHO)unity.o #$(PATHD)Test%.d
+$(PATHB)test_%.$(TARGET_EXTENSION): $(PATHO)test_%.o $(PATHO)chmap.o $(PATHO)unity.o #$(PATHD)Test%.d
 	$(LINK) -o $@ $^
 
 $(PATHO)%.o:: $(PATHT)%.c
@@ -90,7 +90,7 @@ clean:
 	$(CLEANUP) $(PATHB)*.$(TARGET_EXTENSION)
 	$(CLEANUP) $(PATHR)*.txt
 
-.PRECIOUS: $(PATHB)Test%.$(TARGET_EXTENSION)
+.PRECIOUS: $(PATHB)test_%.$(TARGET_EXTENSION)
 .PRECIOUS: $(PATHD)%.d
 .PRECIOUS: $(PATHO)%.o
 .PRECIOUS: $(PATHR)%.txt
