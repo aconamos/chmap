@@ -67,10 +67,14 @@ bubble_up(struct chmap * map, const struct __entry inentry, size_t ind) {
 }
 
 /**
- * Find the next spot for a key
+ * Given a chmap and a key, returns the index where that key should be inserted and the PSL.
  */
 static struct __psl_ind
-find_spot(struct chmap * map, const uint64_t key, size_t psl, uint64_t working_index) {
+address_array(struct chmap *map, const uint64_t key) 
+{
+    uint64_t working_index = key % map->__array_size;
+    size_t psl = 0;
+
     struct __entry working_entry = map->__translation_array[working_index];
 
     while (working_entry.has_entry == 1 && working_entry.keyword != key && working_entry.psl >= psl) {
@@ -80,18 +84,6 @@ find_spot(struct chmap * map, const uint64_t key, size_t psl, uint64_t working_i
     }
 
     return (struct __psl_ind){ working_index, psl};
-}
-
-/**
- * Given a chmap and a key, returns the index where that key should be inserted and the PSL.
- */
-static struct __psl_ind
-address_array(struct chmap *map, const uint64_t key) 
-{
-    uint64_t working_index = key % map->__array_size;
-    size_t psl = 0;
-
-    return find_spot(map, key, psl, working_index);
 }
 
 static struct __entry *
@@ -124,6 +116,7 @@ grow_map(struct chmap * map)
     void * new_backing_array = malloc(map->__item_size * new_size);
     struct __entry * new_translation_array = init_translation_array(new_size);
     
+    debug_map(map);
     // Instead of writing some jank code, we'll just reuse the put item operation.
     // This requires us to act like there's no items in the array.
     map->__backing_array = new_backing_array;
@@ -142,6 +135,8 @@ grow_map(struct chmap * map)
             chmap_put_hash(map, entry.keyword, ba_ptr);
         }
     }
+
+    debug_map(map);
 
     // free(old_backing_array);
     // free(old_translation_array);
