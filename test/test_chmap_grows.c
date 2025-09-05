@@ -24,7 +24,7 @@ void chmap_put_can_grow(void) {
 
     for (char key = 'A'; key < 'Z'; key = (char) key + 1) {
         printf("getting %c\n", key);
-        char * got = chmap_get(map, &key, sizeof(char));
+        const char * got = chmap_get(map, &key, sizeof(char));
 
         TEST_ASSERT_NOT_NULL_MESSAGE(got, "got a NULL pointer when we shouldn't have!");
 

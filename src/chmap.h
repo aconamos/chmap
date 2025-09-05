@@ -57,4 +57,9 @@ int chmap_put(
  */
 const void * chmap_get(struct chmap * map, const void * key, const size_t keysize);
 
+/**
+ * Deletes the item at `key`.
+ */
+const void * chmap_del(struct chmap * map, const void * key, const size_t keysize);
+
 void debug_map(struct chmap * map);
