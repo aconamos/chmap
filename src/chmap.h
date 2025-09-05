@@ -17,6 +17,9 @@ struct chmap {
     // The size of any given item. This is needed for backing array allocation and indexing.
     size_t __item_size;
 
+    // The size of the key type for this array.
+    size_t __key_size;
+
     // The number of elements stored in this map. Used to compute load factor, 
     // and for keeping track of the next index in the backing array
     size_t __used_size;
@@ -31,6 +34,10 @@ struct chmap {
 
     // This is the array that holds actual data.
     void * __backing_array;
+
+    size_t * __backing_array_index_stack;
+
+    size_t __bais_idx;
 };
 
 

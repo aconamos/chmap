@@ -264,6 +264,11 @@ chmap_get(
     }
 }
 
+
+const void * chmap_del(struct chmap * map, const void * key, const size_t keysize) {
+    return NULL;
+}
+
 void
 debug_map(
     struct chmap * map
