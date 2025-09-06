@@ -25,8 +25,27 @@ void chmap_put_can_grow(void) {
     }
 }
 
+void chmap_put_can_grow_a_lot(void) {
+    struct chmap * map = chmap_new(sizeof(char), sizeof(char));
+
+    for (char key = 'A'; key < (char)300; key = (char) key + 1) {
+        char val = key + 25;
+
+        chmap_put(map, &key, &val);
+    }
+
+    for (char key = 'A'; key < (char)300; key = (char) key + 1) {
+        const char * got = chmap_get(map, &key);
+
+        TEST_ASSERT_NOT_NULL_MESSAGE(got, "got a NULL pointer when we shouldn't have!");
+
+        TEST_ASSERT_EQUAL_UINT8(key + 25, *got);
+    }
+}
+
 int main(void) {
     UNITY_BEGIN();
     RUN_TEST(chmap_put_can_grow);
+    RUN_TEST(chmap_put_can_grow_a_lot);
     return UNITY_END();
 }
