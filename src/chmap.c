@@ -144,11 +144,13 @@ grow_map(struct chmap * map)
 
 struct chmap *
 chmap_new(
-    const size_t item_size
+    const size_t item_size,
+    const size_t key_size
 ) {
     void * backing_array = malloc(sizeof(item_size) * DEFAULT_BACKING_ARRAY_LENGTH);
     struct chmap * map = malloc(sizeof(struct chmap));
 
+    map->__key_size = key_size;
     map->__item_size = item_size;
     map->__used_size = 0;
     map->__array_size = DEFAULT_BACKING_ARRAY_LENGTH;
@@ -221,7 +223,6 @@ int
 chmap_put(
     struct chmap * map,
     const void * key,
-    const size_t keysize,
     const void * item
 ) {
     // This is used in place of a uint8_t[8] to provide the same 8 bytes
@@ -234,7 +235,7 @@ chmap_put(
         grow_map(map);
     }
 
-    siphash(key, keysize, SIPHASH_KEY, (uint8_t*)&outword, 8);
+    siphash(key, map->__key_size, SIPHASH_KEY, (uint8_t*)&outword, 8);
 
     return chmap_put_hash(map, outword, item);
 }
@@ -242,12 +243,11 @@ chmap_put(
 const void *
 chmap_get(
     struct chmap * map,
-    const void * key,
-    const size_t keysize
+    const void * key
 ) {
     uint64_t outword;
 
-    siphash(key, keysize, SIPHASH_KEY, (uint8_t*)&outword, 8);
+    siphash(key, map->__key_size, SIPHASH_KEY, (uint8_t*)&outword, 8);
 
     size_t working_index = outword % map->__array_size;
 
@@ -265,7 +265,7 @@ chmap_get(
 }
 
 
-const void * chmap_del(struct chmap * map, const void * key, const size_t keysize) {
+const void * chmap_del(struct chmap * map, const void * key) {
     return NULL;
 }
 
@@ -290,7 +290,7 @@ void
 debug_map_params(
     struct chmap * map
 ) {
-    printf("item_size: %lu\nused_size: %lu\narray_size: %lu\ntarray_addr: %lu\nbarray_addr: %lu\n",
+    printf("item_size: %lu\nused_size: %lu\narray_size: %lu\ntarray_addr: %p\nbarray_addr: %p\n",
         map->__item_size,
         map->__used_size,
         map->__array_size,

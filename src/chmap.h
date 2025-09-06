@@ -35,8 +35,11 @@ struct chmap {
     // This is the array that holds actual data.
     void * __backing_array;
 
+    // This is the array that holds a stack of indices to use in the backing array.
+    // Also, required so that no "holes" are left in the backing array.
     size_t * __backing_array_index_stack;
 
+    // Top index of the backing array index stack.
     size_t __bais_idx;
 };
 
@@ -45,8 +48,9 @@ struct chmap {
  * Given an item_size, creates a new hashmap that can store items of item_size.
  * 
  * @param item_size size of data that will be stored in this hashmap
+ * @param key_size  size of keys that will be used in this hashmap
  */
-struct chmap * chmap_new(const size_t item_size);
+struct chmap * chmap_new(const size_t item_size, const size_t key_size);
 
 /**
  * Puts an item into the given map at the given key. Returns 1 if an item was overwritten,
@@ -55,18 +59,17 @@ struct chmap * chmap_new(const size_t item_size);
 int chmap_put(
     struct chmap * map, 
     const void * key, 
-    const size_t keysize, 
     const void * item 
 );
 
 /**
  * Gets a pointer to the item associated with `key`, or `NULL` if not found.
  */
-const void * chmap_get(struct chmap * map, const void * key, const size_t keysize);
+const void * chmap_get(struct chmap * map, const void * key);
 
 /**
  * Deletes the item at `key`.
  */
-const void * chmap_del(struct chmap * map, const void * key, const size_t keysize);
+const void * chmap_del(struct chmap * map, const void * key);
 
 void debug_map(struct chmap * map);
