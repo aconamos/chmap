@@ -6,15 +6,15 @@ void tearDown(void) {}
 
 
 void chmap_new_char(void) {
-    chmap_new(sizeof(char));
+    chmap_new(sizeof(char), sizeof(char));
 }
 
 void chmap_new_uint64(void) {
-    chmap_new(sizeof(uint64_t));
+    chmap_new(sizeof(uint64_t), sizeof(char));
 }
 
 void chmap_new_large_struct(void) {
-    chmap_new(500);
+    chmap_new(500, 500);
 }
 
 int main(void) {

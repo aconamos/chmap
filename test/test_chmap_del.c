@@ -7,91 +7,91 @@ void tearDown(void) {}
 
 
 void chmap_del_one_char(void) {
-    struct chmap * map = chmap_new(sizeof(char));
+    struct chmap * map = chmap_new(sizeof(char), sizeof(char));
 
     char put = 'A';
     char key = 'B';
 
-    chmap_put(map, &key, sizeof(char), &put);
+    chmap_put(map, &key, &put);
 
-    chmap_del(map, &key, sizeof(char));
+    chmap_del(map, &key);
 
-    const char * got = chmap_get(map, &key, sizeof(char));
+    const char * got = chmap_get(map, &key);
 
     TEST_ASSERT_NULL(got);
 }
 
 void chmap_del_overwritten(void) {
-    struct chmap * map = chmap_new(sizeof(char));
+    struct chmap * map = chmap_new(sizeof(char), sizeof(char));
 
     char put = 'A';
     char key = 'B';
 
-    chmap_put(map, &key, sizeof(char), &put);
+    chmap_put(map, &key, &put);
 
     put = 'Z';
 
-    chmap_put(map, &key, sizeof(char), &put);
+    chmap_put(map, &key, &put);
 
-    chmap_del(map, &key, sizeof(char));
+    chmap_del(map, &key);
 
-    const char * got = chmap_get(map, &key, sizeof(char));
+    const char * got = chmap_get(map, &key);
 
     TEST_ASSERT_NULL(got);
 }
 
 void chmap_del_many_sequential(void) {
-    struct chmap * map = chmap_new(sizeof(char));
+    struct chmap * map = chmap_new(sizeof(char), sizeof(char));
 
     for (char key = 'A'; key < 'L'; key = (char) key + 1) {
         char val = key + 25;
 
-        chmap_put(map, &key, 1, &val);
-        chmap_del(map, &key, sizeof(char));
+        chmap_put(map, &key, &val);
+        chmap_del(map, &key);
     }
 
     for (char key = 'A'; key < 'L'; key = (char) key + 1) {
-        const char * got = chmap_get(map, &key, 1);
+        const char * got = chmap_get(map, &key);
 
         TEST_ASSERT_NULL(got);
     }
 }
 
 void chmap_del_many_bulk(void) {
-    struct chmap * map = chmap_new(sizeof(char));
+    struct chmap * map = chmap_new(sizeof(char), sizeof(char));
 
     for (char key = 'A'; key < 'L'; key = (char) key + 1) {
         char val = key + 25;
 
-        chmap_put(map, &key, 1, &val);
+        chmap_put(map, &key, &val);
     }
 
     for (char key = 'A'; key < 'L'; key = (char) key + 1) {
-        chmap_del(map, &key, 1);
+        chmap_del(map, &key);
     }
 
     for (char key = 'A'; key < 'L'; key = (char) key + 1) {
-        const char * got = chmap_get(map, &key, 1);
+        const char * got = chmap_get(map, &key);
 
         TEST_ASSERT_NULL(got);
     }
 }
 
 void chmap_del_one_from_many(void) {
-    struct chmap * map = chmap_new(sizeof(char));
+    struct chmap * map = chmap_new(sizeof(char), sizeof(char));
 
     for (char key = 'A'; key < 'L'; key = (char) key + 1) {
         char val = key + 25;
 
-        chmap_put(map, &key, 1, &val);
+        chmap_put(map, &key, &val);
     }
 
     const char del_key = 'F';
 
-    chmap_del(map, &del_key, sizeof(char));
+    chmap_del(map, &del_key);
 
     for (char key = 'A'; key < 'L'; key = (char) key + 1) {
-        const char * got = chmap_get(map, &key, 1);
+        const char * got = chmap_get(map, &key);
 
 
         if (key == del_key) {
@@ -103,34 +103,33 @@ void chmap_del_one_from_many(void) {
 }
 
 void chmap_del_large_key(void) {
-    struct chmap * map = chmap_new(sizeof(char));
-
     const char * key = "According to all known laws of aviation, there is no way a bee should be able to fly.";
+    struct chmap * map = chmap_new(sizeof(char), strlen(key));
     char val = 'a';
 
-    chmap_put(map, key, strlen(key), &val);
+    chmap_put(map, key, &val);
 
-    chmap_del(map, key, strlen(key));
+    chmap_del(map, key);
 
-    const char * got = chmap_get(map, key, strlen(key));
+    const char * got = chmap_get(map, key);
 
     TEST_ASSERT_EQUAL_UINT8(*got, 'a');
 }
 
 void chmap_del_many_repeatedly(void) {
-    struct chmap * map = chmap_new(sizeof(char));
+    struct chmap * map = chmap_new(sizeof(char), sizeof(char));
 
     for (int i = 0; i < 20; i++) {
         for (char key = 'A'; key < 'L'; key = (char) key + 1) {
             char val = key + 25;
 
-            chmap_put(map, &key, 1, &val);
-            chmap_del(map, &key, sizeof(char));
+            chmap_put(map, &key, &val);
+            chmap_del(map, &key);
         }
     }
 
     for (char key = 'A'; key < 'L'; key = (char) key + 1) {
-        const char * got = chmap_get(map, &key, 1);
+        const char * got = chmap_get(map, &key);
 
         TEST_ASSERT_NULL(got);
     }
