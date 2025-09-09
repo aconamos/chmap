@@ -70,6 +70,11 @@ const void * chmap_get(struct chmap * map, const void * key);
 /**
  * Deletes the item at `key`.
  */
-const void * chmap_del(struct chmap * map, const void * key);
+void chmap_del(struct chmap * map, const void * key);
+
+/**
+ * Frees and totally deallocates the given map.
+ */
+void chmap_free(struct chmap * map);
 
 void debug_map(struct chmap * map);

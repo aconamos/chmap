@@ -137,6 +137,26 @@ void chmap_del_many_repeatedly(void) {
     TEST_ASSERT_EQUAL_size_t(0, map->used_size);
 }
 
+void chmap_del_after_growing(void) {
+    struct chmap * map = chmap_new(sizeof(char), sizeof(char));
+
+    for (char key = 0; key < (char)0xFF; key++) {
+        char put = key + 25;
+
+        chmap_put(map, &key, &put);
+    }
+
+    for (char key = 0; key < (char)0xFF; key++) {
+        chmap_del(map, &key);
+    }
+
+    for (char key = 0; key < (char)0xFF; key++) {
+        const char * got = chmap_get(map, &key);
+
+        TEST_ASSERT_NULL(got);
+    }
+}
+
 int main(void) {
     UNITY_BEGIN();
     RUN_TEST(chmap_del_one_char);
@@ -146,5 +166,6 @@ int main(void) {
     RUN_TEST(chmap_del_one_from_many);
     RUN_TEST(chmap_del_large_key);
     RUN_TEST(chmap_del_many_repeatedly);
+    RUN_TEST(chmap_del_after_growing);
     return UNITY_END();
 }

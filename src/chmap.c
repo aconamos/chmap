@@ -243,7 +243,7 @@ chmap_put_hash(
     if (looking_at.has_entry == 0) {
         // We found an empty spot - put it in, no fuss
         size_t bak = pop_bais_idx(map);
-        map->used_size = (map->used_size + 1);
+        map->used_size++;
         struct entry new_entry = {
             1,
             insert_at.psl,
@@ -267,7 +267,7 @@ chmap_put_hash(
     } else {
         // We need to now swap the two out, and put the next one somewhere else down in the array.
         size_t bak = pop_bais_idx(map);
-        map->used_size = (map->used_size + 1);
+        map->used_size++;
         struct entry new_entry = {
             1,
             insert_at.psl,
@@ -329,12 +329,38 @@ chmap_get(
 }
 
 
-const void * chmap_del(struct chmap * map, const void * key) {
+void chmap_del(struct chmap * map, const void * key) {
     uint64_t outword;
 
     siphash(key, map->ksize, SIPHASH_KEY, (uint8_t*)&outword, 8);
 
     size_t working_index = outword % map->array_size;
+    struct entry removing_entry = map->translation_array[working_index];
+    struct entry next;
+
+    push_bais_idx(map, removing_entry.backing_array_key);
+
+    do {
+        size_t cur = working_index;
+        working_index = (working_index + 1) % map->array_size;
+        next = map->translation_array[working_index];
+
+        next.psl--;
+
+        map->translation_array[cur] = next;
+    } while (next.has_entry);
+
+    map->used_size--;
+}
+
+void 
+chmap_free(
+    struct chmap * map
+) {
+    free(map->bais);
+    free(map->translation_array);
+    free(map->backing_array);
+    free(map);
 }
 
 void
