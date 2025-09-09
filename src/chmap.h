@@ -3,7 +3,7 @@
 #include <stdint.h>
 
 
-struct __entry {
+struct entry {
     int has_entry;
     size_t psl;
     uint64_t keyword;
@@ -15,32 +15,32 @@ struct __entry {
  */
 struct chmap {
     // The size of any given item. This is needed for backing array allocation and indexing.
-    size_t __item_size;
+    size_t isize;
 
     // The size of the key type for this array.
-    size_t __key_size;
+    size_t ksize;
 
     // The number of elements stored in this map. Used to compute load factor, 
     // and for keeping track of the next index in the backing array
-    size_t __used_size;
+    size_t used_size;
 
     // The number of elements in the translation array and backing array.
-    size_t __array_size;
+    size_t array_size;
 
     // In more common vernacular, this is the array of buckets.
     // It is where hashes key into and holds indices that reference
     // a spot in the backing array to store data.
-    struct __entry * __translation_array;
+    struct entry * translation_array;
 
     // This is the array that holds actual data.
-    void * __backing_array;
+    void * backing_array;
 
     // This is the array that holds a stack of indices to use in the backing array.
     // Also, required so that no "holes" are left in the backing array.
-    size_t * __backing_array_index_stack;
+    size_t * bais;
 
     // Top index of the backing array index stack.
-    size_t __bais_idx;
+    size_t bais_idx;
 };
 
 

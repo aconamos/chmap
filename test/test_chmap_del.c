@@ -134,7 +134,7 @@ void chmap_del_many_repeatedly(void) {
         TEST_ASSERT_NULL(got);
     }
 
-    TEST_ASSERT_EQUAL_size_t(0, map->__used_size);
+    TEST_ASSERT_EQUAL_size_t(0, map->used_size);
 }
 
 int main(void) {

@@ -15,7 +15,7 @@
 
 static const char * SIPHASH_KEY = "abcdef9876543210";
 
-struct __psl_ind { 
+struct psl_ind { 
     uint64_t index; 
     size_t psl;
 };
@@ -57,56 +57,56 @@ get_ba_ptr_arr(
  * robinhood shuffling if necessary to maintain low PSL or whatever.
  */
 static void
-bubble_up(struct chmap * map, const struct __entry inentry, size_t ind) {
-    struct __entry grabbed_entry = inentry;
+bubble_up(struct chmap * map, const struct entry inentry, size_t ind) {
+    struct entry grabbed_entry = inentry;
 
     do {
-        struct __entry working_entry = map->__translation_array[ind];
+        struct entry working_entry = map->translation_array[ind];
 
         if (working_entry.has_entry == 0) {
             // We've encountered an empty spot, and can insert and jump ship.
-            map->__translation_array[ind] = grabbed_entry;
+            map->translation_array[ind] = grabbed_entry;
             return;
         }
 
         if (working_entry.psl < grabbed_entry.psl) {
             // Take from the rich, and give to the poor - this means,
             // if an entry has a lower PSL than our current one, swap.
-            map->__translation_array[ind] = grabbed_entry;
+            map->translation_array[ind] = grabbed_entry;
             grabbed_entry = working_entry;
         }
 
         grabbed_entry.psl++;
-        ind = (ind + 1) % map->__array_size;
+        ind = (ind + 1) % map->array_size;
     } while (grabbed_entry.has_entry == 1);
 }
 
 /**
  * Given a chmap and a key, returns the index where that key should be inserted and the PSL.
  */
-static struct __psl_ind
+static struct psl_ind
 address_array(struct chmap *map, const uint64_t key) 
 {
-    uint64_t working_index = key % map->__array_size;
+    uint64_t working_index = key % map->array_size;
     size_t psl = 0;
 
-    struct __entry working_entry = map->__translation_array[working_index];
+    struct entry working_entry = map->translation_array[working_index];
 
     while (working_entry.has_entry == 1 && working_entry.keyword != key && working_entry.psl >= psl) {
-        working_entry = map->__translation_array[working_index];
-        working_index = (working_index + 1) % map->__array_size;
+        working_entry = map->translation_array[working_index];
+        working_index = (working_index + 1) % map->array_size;
         psl++;
     }
 
-    return (struct __psl_ind){ working_index, psl};
+    return (struct psl_ind){ working_index, psl};
 }
 
-static struct __entry *
+static struct entry *
 init_translation_array(
     const size_t numentries
 ) {
-    struct __entry * entries = calloc(numentries, sizeof(struct __entry));
-    struct __entry empty = {
+    struct entry * entries = calloc(numentries, sizeof(struct entry));
+    struct entry empty = {
         .has_entry = 0,
     };
 
@@ -120,32 +120,32 @@ init_translation_array(
 static void
 grow_map(struct chmap * map) 
 {
-    size_t new_size = map->__array_size * ARRAY_GROW_FACTOR;
-    size_t old_size = map->__array_size;
+    size_t new_size = map->array_size * ARRAY_GROW_FACTOR;
+    size_t old_size = map->array_size;
 
-    void * old_backing_array = map->__backing_array;
-    size_t * old_bais = map->__backing_array_index_stack;
-    struct __entry * old_translation_array = map->__translation_array;
+    void * old_backing_array = map->backing_array;
+    size_t * old_bais = map->bais;
+    struct entry * old_translation_array = map->translation_array;
 
-    void * new_backing_array = malloc(map->__item_size * new_size);
+    void * new_backing_array = malloc(map->isize * new_size);
     size_t * new_bais = init_bais_stack(new_size);
-    struct __entry * new_translation_array = init_translation_array(new_size);
+    struct entry * new_translation_array = init_translation_array(new_size);
     
     // Instead of writing some jank code, we'll just reuse the put item operation.
     // This requires us to act like there's no items in the array.
-    map->__backing_array = new_backing_array;
-    map->__translation_array = new_translation_array;
-    map->__array_size = new_size;
+    map->backing_array = new_backing_array;
+    map->translation_array = new_translation_array;
+    map->array_size = new_size;
     // This is so we can reset backing array indices.
-    map->__used_size = 0;
-    map->__bais_idx = new_size - 1;
-    map->__backing_array_index_stack = new_bais;
+    map->used_size = 0;
+    map->bais_idx = new_size - 1;
+    map->bais = new_bais;
 
     debug_map_params(map);
     for (size_t i = 0; i < old_size; i++) {
-        struct __entry entry = old_translation_array[i];
+        struct entry entry = old_translation_array[i];
         if (entry.has_entry) {
-            void * ba_ptr = get_ba_ptr_arr(old_backing_array, map->__item_size, entry.backing_array_key);
+            void * ba_ptr = get_ba_ptr_arr(old_backing_array, map->isize, entry.backing_array_key);
             chmap_put_hash(map, entry.keyword, ba_ptr);
         }
     }
@@ -172,14 +172,14 @@ static size_t
 pop_bais_idx(
     struct chmap * map
 ) {
-    size_t bais_idx = map->__bais_idx;
+    size_t bais_idx = map->bais_idx;
 
     #ifdef DEBUG
     assert(bais_idx >= 0);
     #endif
 
-    size_t ret = map->__backing_array_index_stack[bais_idx];
-    map->__bais_idx--;
+    size_t ret = map->bais[bais_idx];
+    map->bais_idx--;
     return ret;
 }
 
@@ -188,9 +188,9 @@ push_bais_idx(
     struct chmap * map,
     size_t val
 ) {
-    map->__bais_idx++;
+    map->bais_idx++;
 
-    map->__backing_array_index_stack[map->__bais_idx] = val;
+    map->bais[map->bais_idx] = val;
 }
 
 static inline void * 
@@ -207,7 +207,7 @@ get_ba_ptr(
     struct chmap * map,
     size_t index
 ) {
-    return ((char*)map->__backing_array) + index * map->__item_size;
+    return ((char*)map->backing_array) + index * map->isize;
 }
 
 struct chmap *
@@ -218,14 +218,14 @@ chmap_new(
     void * backing_array = calloc(DEFAULT_BACKING_ARRAY_LENGTH, sizeof(item_size));
     struct chmap * map = malloc(sizeof(struct chmap));
 
-    map->__bais_idx = DEFAULT_BACKING_ARRAY_LENGTH - 1;
-    map->__key_size = key_size;
-    map->__item_size = item_size;
-    map->__used_size = 0;
-    map->__array_size = DEFAULT_BACKING_ARRAY_LENGTH;
-    map->__translation_array = init_translation_array(DEFAULT_BACKING_ARRAY_LENGTH);
-    map->__backing_array_index_stack = init_bais_stack(DEFAULT_BACKING_ARRAY_LENGTH);
-    map->__backing_array = backing_array;
+    map->bais_idx = DEFAULT_BACKING_ARRAY_LENGTH - 1;
+    map->ksize = key_size;
+    map->isize = item_size;
+    map->used_size = 0;
+    map->array_size = DEFAULT_BACKING_ARRAY_LENGTH;
+    map->translation_array = init_translation_array(DEFAULT_BACKING_ARRAY_LENGTH);
+    map->bais = init_bais_stack(DEFAULT_BACKING_ARRAY_LENGTH);
+    map->backing_array = backing_array;
 
     return map;
 }
@@ -236,15 +236,15 @@ chmap_put_hash(
     const uint64_t hash,
     const void * item
 ) {
-    struct __psl_ind insert_at = address_array(map, hash);
-    const struct __entry looking_at = map->__translation_array[insert_at.index];
-    const size_t itemsize = map->__item_size;
+    struct psl_ind insert_at = address_array(map, hash);
+    const struct entry looking_at = map->translation_array[insert_at.index];
+    const size_t itemsize = map->isize;
 
     if (looking_at.has_entry == 0) {
         // We found an empty spot - put it in, no fuss
         size_t bak = pop_bais_idx(map);
-        map->__used_size = (map->__used_size + 1);
-        struct __entry new_entry = {
+        map->used_size = (map->used_size + 1);
+        struct entry new_entry = {
             1,
             insert_at.psl,
             .backing_array_key = bak,
@@ -252,7 +252,7 @@ chmap_put_hash(
         };
 
         
-        map->__translation_array[insert_at.index] = new_entry;
+        map->translation_array[insert_at.index] = new_entry;
 
         void * ba_ptr = get_ba_ptr(map, bak);
 
@@ -267,8 +267,8 @@ chmap_put_hash(
     } else {
         // We need to now swap the two out, and put the next one somewhere else down in the array.
         size_t bak = pop_bais_idx(map);
-        map->__used_size = (map->__used_size + 1);
-        struct __entry new_entry = {
+        map->used_size = (map->used_size + 1);
+        struct entry new_entry = {
             1,
             insert_at.psl,
             .backing_array_key = bak,
@@ -295,11 +295,11 @@ chmap_put(
     // but in a format easier to use as a key.
     uint64_t outword;
 
-    if (map->__used_size >= map->__array_size * MAX_LOAD_FACTOR) {
+    if (map->used_size >= map->array_size * MAX_LOAD_FACTOR) {
         grow_map(map);
     }
 
-    siphash(key, map->__key_size, SIPHASH_KEY, (uint8_t*)&outword, 8);
+    siphash(key, map->ksize, SIPHASH_KEY, (uint8_t*)&outword, 8);
 
     return chmap_put_hash(map, outword, item);
 }
@@ -311,14 +311,14 @@ chmap_get(
 ) {
     uint64_t outword;
 
-    siphash(key, map->__key_size, SIPHASH_KEY, (uint8_t*)&outword, 8);
+    siphash(key, map->ksize, SIPHASH_KEY, (uint8_t*)&outword, 8);
 
-    size_t working_index = outword % map->__array_size;
+    size_t working_index = outword % map->array_size;
 
-    struct __entry maybe = map->__translation_array[working_index];
+    struct entry maybe = map->translation_array[working_index];
     while (maybe.has_entry && maybe.keyword != outword) {
-        working_index = (working_index + 1) % map->__array_size;
-        maybe = map->__translation_array[working_index];
+        working_index = (working_index + 1) % map->array_size;
+        maybe = map->translation_array[working_index];
     };
 
     if (maybe.has_entry) {
@@ -330,22 +330,26 @@ chmap_get(
 
 
 const void * chmap_del(struct chmap * map, const void * key) {
-    return NULL;
+    uint64_t outword;
+
+    siphash(key, map->ksize, SIPHASH_KEY, (uint8_t*)&outword, 8);
+
+    size_t working_index = outword % map->array_size;
 }
 
 void
 debug_map(
     struct chmap * map
 ) {
-    for (size_t i = 0; i < map->__array_size; i++) {
-        struct __entry entry = map->__translation_array[i];
+    for (size_t i = 0; i < map->array_size; i++) {
+        struct entry entry = map->translation_array[i];
 
         if (entry.has_entry)
         printf("bak %3lu; psl: %3lu; tind: %3lu; val: %lu;\n",
             entry.backing_array_key, 
             entry.psl,
             i,
-            *((size_t*)map->__backing_array + entry.backing_array_key * map->__item_size)
+            *((size_t*)map->backing_array + entry.backing_array_key * map->isize)
         );
     }
 }
@@ -355,10 +359,10 @@ debug_map_params(
     struct chmap * map
 ) {
     printf("item_size: %lu\nused_size: %lu\narray_size: %lu\ntarray_addr: %p\nbarray_addr: %p\n",
-        map->__item_size,
-        map->__used_size,
-        map->__array_size,
-        map->__translation_array,
-        map->__backing_array
+        map->isize,
+        map->used_size,
+        map->array_size,
+        map->translation_array,
+        map->backing_array
     );
 }
