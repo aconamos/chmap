@@ -34,6 +34,24 @@ chmap_put_hash(
     const void * item
 );
 
+static size_t * 
+init_bais_stack(
+    size_t numentries
+);
+
+static inline void *
+get_ba_ptr(
+    struct chmap * map,
+    size_t index
+);
+
+static inline void * 
+get_ba_ptr_arr(
+    void * ba,
+    size_t isize,
+    size_t index
+);
+
 /**
  * Takes an entry and a location and tries to insert it at the location, performing
  * robinhood shuffling if necessary to maintain low PSL or whatever.
@@ -114,6 +132,7 @@ grow_map(struct chmap * map)
     struct __entry * old_translation_array = map->__translation_array;
 
     void * new_backing_array = malloc(map->__item_size * new_size);
+    size_t * new_bais = init_bais_stack(new_size);
     struct __entry * new_translation_array = init_translation_array(new_size);
     
     debug_map(map);
@@ -124,12 +143,14 @@ grow_map(struct chmap * map)
     map->__array_size = new_size;
     // This is so we can reset backing array indices.
     map->__used_size = 0;
+    map->__bais_idx = new_size - 1;
+    map->__backing_array_index_stack = new_bais;
 
     debug_map_params(map);
     for (size_t i = 0; i < old_size; i++) {
         struct __entry entry = old_translation_array[i];
         if (entry.has_entry) {
-            void * ba_ptr = ((size_t*)old_backing_array) + (entry.backing_array_key * map->__item_size);
+            void * ba_ptr = get_ba_ptr_arr(old_backing_array, map->__item_size, entry.backing_array_key);
             printf("\n");
             printf("rehashing entry at index %lu (val %c); bak: %lu\n", i, *(char*)ba_ptr, entry.backing_array_key);
             chmap_put_hash(map, entry.keyword, ba_ptr);
@@ -142,19 +163,74 @@ grow_map(struct chmap * map)
     // free(old_translation_array);
 }
 
+static size_t * 
+init_bais_stack(
+    size_t numentries
+) {
+    size_t * stack = calloc(numentries, sizeof(size_t));
+
+    for (size_t i = 0; i < numentries; i++) {
+        stack[i] = numentries - i;
+    }
+
+    return stack;
+}
+
+static size_t
+pop_bais_idx(
+    struct chmap * map
+) {
+    size_t bais_idx = map->__bais_idx;
+
+    assert(bais_idx >= 0);
+
+    size_t ret = map->__backing_array_index_stack[bais_idx];
+    map->__bais_idx--;
+    return ret;
+}
+
+static void
+push_bais_idx(
+    struct chmap * map,
+    size_t val
+) {
+    map->__bais_idx ++;
+
+    map->__backing_array_index_stack[map->__bais_idx] = val;
+}
+
+static inline void * 
+get_ba_ptr_arr(
+    void * ba,
+    size_t isize,
+    size_t index
+) {
+    return ((char*)ba) + index * isize; 
+}
+
+static inline void *
+get_ba_ptr(
+    struct chmap * map,
+    size_t index
+) {
+    return ((char*)map->__backing_array) + index * map->__item_size;
+}
+
 struct chmap *
 chmap_new(
     const size_t item_size,
     const size_t key_size
 ) {
-    void * backing_array = malloc(sizeof(item_size) * DEFAULT_BACKING_ARRAY_LENGTH);
+    void * backing_array = calloc(DEFAULT_BACKING_ARRAY_LENGTH, sizeof(item_size));
     struct chmap * map = malloc(sizeof(struct chmap));
 
+    map->__bais_idx = DEFAULT_BACKING_ARRAY_LENGTH - 1;
     map->__key_size = key_size;
     map->__item_size = item_size;
     map->__used_size = 0;
     map->__array_size = DEFAULT_BACKING_ARRAY_LENGTH;
     map->__translation_array = init_translation_array(DEFAULT_BACKING_ARRAY_LENGTH);
+    map->__backing_array_index_stack = init_bais_stack(DEFAULT_BACKING_ARRAY_LENGTH);
     map->__backing_array = backing_array;
 
     return map;
@@ -172,7 +248,7 @@ chmap_put_hash(
 
     if (looking_at.has_entry == 0) {
         // We found an empty spot - put it in, no fuss
-        size_t bak = map->__used_size;
+        size_t bak = pop_bais_idx(map);
         printf("(empty) bak: %lu;\n", bak);
         map->__used_size = (map->__used_size + 1);
         struct __entry new_entry = {
@@ -185,12 +261,12 @@ chmap_put_hash(
         
         map->__translation_array[insert_at.index] = new_entry;
 
-        void * ba_ptr = (size_t*)map->__backing_array + bak * itemsize;
+        void * ba_ptr = get_ba_ptr(map, bak);
 
         memcpy(ba_ptr, item, itemsize);
     } else if (looking_at.keyword == hash) {
         // This key already is associated - overwrite it
-        void * ba_ptr = (size_t*)map->__backing_array + looking_at.backing_array_key * itemsize;
+        void * ba_ptr = get_ba_ptr(map, looking_at.backing_array_key);
 
         memcpy(ba_ptr, item, itemsize);
 
@@ -198,7 +274,7 @@ chmap_put_hash(
         return 1;
     } else {
         // We need to now swap the two out, and put the next one somewhere else down in the array.
-        size_t bak = map->__used_size;
+        size_t bak = pop_bais_idx(map);
         printf("(bubbling) bak: %lu;\n", bak);
         map->__used_size = (map->__used_size + 1);
         struct __entry new_entry = {
@@ -208,7 +284,7 @@ chmap_put_hash(
             .keyword = hash,
         };
 
-        void * ba_ptr = (size_t*)map->__backing_array + bak * itemsize;
+        void * ba_ptr = get_ba_ptr(map, bak);
 
         memcpy(ba_ptr, item, itemsize);
 
@@ -258,7 +334,7 @@ chmap_get(
     };
 
     if (maybe.has_entry) {
-        return ((size_t*)map->__backing_array + maybe.backing_array_key * map->__item_size);
+        return (get_ba_ptr(map, maybe.backing_array_key));
     } else {
         return NULL;
     }

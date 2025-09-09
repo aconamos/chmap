@@ -28,11 +28,12 @@ PATHR = build/results/
 BUILD_PATHS = $(PATHB) $(PATHD) $(PATHO) $(PATHR) $(PATHBIN)
 
 SRCT = $(wildcard $(PATHT)*.c)
+FSANITIZE = -fsanitize=address
 
 COMPILE=gcc -c
 LINK=gcc bin/siphash.o
 DEPEND=gcc -MM -MG -MF
-CFLAGS=-I. -I$(PATHU) -I$(PATHS) -DTEST
+CFLAGS=-I. -I$(PATHU) -I$(PATHS) -DTEST -g 
 
 RESULTS = $(patsubst $(PATHT)test_%.c,$(PATHR)test_%.txt,$(SRCT) )
 
