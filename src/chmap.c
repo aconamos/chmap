@@ -58,7 +58,6 @@ get_ba_ptr_arr(
  */
 static void
 bubble_up(struct chmap * map, const struct __entry inentry, size_t ind) {
-    struct __entry buffer_entry;
     struct __entry grabbed_entry = inentry;
 
     do {
@@ -73,10 +72,8 @@ bubble_up(struct chmap * map, const struct __entry inentry, size_t ind) {
         if (working_entry.psl < grabbed_entry.psl) {
             // Take from the rich, and give to the poor - this means,
             // if an entry has a lower PSL than our current one, swap.
-            // TODO: Redudant copy here that we can get rid of
-            buffer_entry = working_entry;
             map->__translation_array[ind] = grabbed_entry;
-            grabbed_entry = buffer_entry;
+            grabbed_entry = working_entry;
         }
 
         grabbed_entry.psl++;
