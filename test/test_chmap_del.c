@@ -113,7 +113,7 @@ void chmap_del_large_key(void) {
 
     const char * got = chmap_get(map, key);
 
-    TEST_ASSERT_EQUAL_UINT8(*got, 'a');
+    TEST_ASSERT_NULL(got);
 }
 
 void chmap_del_many_repeatedly(void) {

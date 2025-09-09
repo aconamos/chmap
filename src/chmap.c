@@ -71,7 +71,8 @@ bubble_up(struct chmap * map, const struct __entry inentry, size_t ind) {
         }
 
         if (working_entry.psl < grabbed_entry.psl) {
-            // Take from the rich, and give to the poor.
+            // Take from the rich, and give to the poor - this means,
+            // if an entry has a lower PSL than our current one, swap.
             // TODO: Redudant copy here that we can get rid of
             buffer_entry = working_entry;
             map->__translation_array[ind] = grabbed_entry;
@@ -80,7 +81,6 @@ bubble_up(struct chmap * map, const struct __entry inentry, size_t ind) {
 
         grabbed_entry.psl++;
         ind = (ind + 1) % map->__array_size;
-        printf("bubble (psl: %lu, idx: %lu)\n", grabbed_entry.psl, ind);
     } while (grabbed_entry.has_entry == 1);
 }
 
@@ -123,19 +123,17 @@ init_translation_array(
 static void
 grow_map(struct chmap * map) 
 {
-    debug_map_params(map);
-    printf("growing\n");
     size_t new_size = map->__array_size * ARRAY_GROW_FACTOR;
     size_t old_size = map->__array_size;
 
     void * old_backing_array = map->__backing_array;
+    size_t * old_bais = map->__backing_array_index_stack;
     struct __entry * old_translation_array = map->__translation_array;
 
     void * new_backing_array = malloc(map->__item_size * new_size);
     size_t * new_bais = init_bais_stack(new_size);
     struct __entry * new_translation_array = init_translation_array(new_size);
     
-    debug_map(map);
     // Instead of writing some jank code, we'll just reuse the put item operation.
     // This requires us to act like there's no items in the array.
     map->__backing_array = new_backing_array;
@@ -151,16 +149,13 @@ grow_map(struct chmap * map)
         struct __entry entry = old_translation_array[i];
         if (entry.has_entry) {
             void * ba_ptr = get_ba_ptr_arr(old_backing_array, map->__item_size, entry.backing_array_key);
-            printf("\n");
-            printf("rehashing entry at index %lu (val %c); bak: %lu\n", i, *(char*)ba_ptr, entry.backing_array_key);
             chmap_put_hash(map, entry.keyword, ba_ptr);
         }
     }
 
-    debug_map(map);
-
-    // free(old_backing_array);
-    // free(old_translation_array);
+    free(old_backing_array);
+    free(old_translation_array);
+    free(old_bais);
 }
 
 static size_t * 
@@ -182,7 +177,9 @@ pop_bais_idx(
 ) {
     size_t bais_idx = map->__bais_idx;
 
+    #ifdef DEBUG
     assert(bais_idx >= 0);
+    #endif
 
     size_t ret = map->__backing_array_index_stack[bais_idx];
     map->__bais_idx--;
@@ -194,7 +191,7 @@ push_bais_idx(
     struct chmap * map,
     size_t val
 ) {
-    map->__bais_idx ++;
+    map->__bais_idx++;
 
     map->__backing_array_index_stack[map->__bais_idx] = val;
 }
@@ -249,7 +246,6 @@ chmap_put_hash(
     if (looking_at.has_entry == 0) {
         // We found an empty spot - put it in, no fuss
         size_t bak = pop_bais_idx(map);
-        printf("(empty) bak: %lu;\n", bak);
         map->__used_size = (map->__used_size + 1);
         struct __entry new_entry = {
             1,
@@ -270,12 +266,10 @@ chmap_put_hash(
 
         memcpy(ba_ptr, item, itemsize);
 
-        printf("put (overwrite) \n");
         return 1;
     } else {
         // We need to now swap the two out, and put the next one somewhere else down in the array.
         size_t bak = pop_bais_idx(map);
-        printf("(bubbling) bak: %lu;\n", bak);
         map->__used_size = (map->__used_size + 1);
         struct __entry new_entry = {
             1,
@@ -291,7 +285,6 @@ chmap_put_hash(
         bubble_up(map, new_entry, insert_at.index);
     }
 
-    printf("put (not overwrite) \n");
     return 0;
 }
 
@@ -305,9 +298,7 @@ chmap_put(
     // but in a format easier to use as a key.
     uint64_t outword;
 
-    printf("putting\n");
     if (map->__used_size >= map->__array_size * MAX_LOAD_FACTOR) {
-        printf("hnnnrgh i'm gonna grow\n");
         grow_map(map);
     }
 
