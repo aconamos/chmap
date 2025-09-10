@@ -30,8 +30,8 @@ BUILD_PATHS = $(PATHB) $(PATHD) $(PATHO) $(PATHR) $(PATHBIN)
 SRCT = $(wildcard $(PATHT)*.c)
 FSANITIZE = -fsanitize=address
 
-COMPILE=gcc -c
-LINK=gcc bin/siphash.o
+COMPILE=gcc -c $(FSANITIZE)
+LINK=gcc $(FSANITIZE) bin/siphash.o
 DEPEND=gcc -MM -MG -MF
 CFLAGS=-I. -I$(PATHU) -I$(PATHS) -DTEST -g 
 

@@ -56,42 +56,23 @@ void chmap_put_large_key(void) {
     TEST_ASSERT_EQUAL_UINT8(*got, 'a');
 }
 
-void chmap_put_bad_string_val(void) {
-    struct chmap * map = chmap_new(50, 50);
-
-    char key = 'A';
-
-    // This is a deliberate misuse of the map. It will only read 50 bytes, and there
-    // will be no null byte to terminate the string. This is a great way to have a
-    // buffer overflow.
-    chmap_put(
-        map,
-        &key,
-        "According to all known laws of aviation, there is no way a bee should be able to fly."
-    );
-
-    const char * got = chmap_get(map, &key);
-
-    TEST_ASSERT_EQUAL_STRING_LEN("According to all known laws of aviation, there is ", got, 50);
-}
-
 void chmap_put_string_val(void) {
     const char * value = "According to all known laws of aviation, there is no way a bee should be able to fly.";
     const size_t value_len = strlen(value);
     
-    struct chmap * map = chmap_new(value_len, sizeof(char));
+    struct chmap * map = chmap_new(sizeof(size_t), sizeof(char));
 
     char key = 'A';
 
     chmap_put(
         map,
         &key,
-        value
+        &value
     );
 
-    const char * got = chmap_get(map, &key);
+    const char ** got = chmap_get(map, &key);
 
-    TEST_ASSERT_EQUAL_STRING(value, got);
+    TEST_ASSERT_EQUAL_STRING(value, *got);
 }
 
 int main(void) {
@@ -100,7 +81,6 @@ int main(void) {
     RUN_TEST(chmap_put_overwrite);
     RUN_TEST(chmap_put_many);
     RUN_TEST(chmap_put_large_key);
-    RUN_TEST(chmap_put_bad_string_val);
     RUN_TEST(chmap_put_string_val);
     return UNITY_END();
 }
