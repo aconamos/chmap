@@ -65,7 +65,7 @@ int chmap_put(
 /**
  * Gets a pointer to the item associated with `key`, or `NULL` if not found.
  */
-const void * chmap_get(struct chmap * map, const void * key);
+void * chmap_get(struct chmap * map, const void * key);
 
 /**
  * Deletes the item at `key`.

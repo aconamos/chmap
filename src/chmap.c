@@ -13,10 +13,21 @@
 #define MAX_LOAD_FACTOR 0.9f
 
 
+// siphash is a cryptographic hash; it doesn't matter much for our use case, so we can use a bad key.
 static const char * SIPHASH_KEY = "abcdef9876543210";
 
-struct psl_ind { 
+/**
+ * Struct that describes a position in a translation array and a PSL to get to it.
+ */
+struct probe_sequence { 
+    /**
+     * Index referencing a translation array.
+     */
     uint64_t index; 
+
+    /**
+     * The distance from the original location.
+     */
     size_t psl;
 };
 
@@ -27,26 +38,22 @@ void debug_map_params(struct chmap * map);
 /**
  * This puts in an item using a hash (instead of the key).
  */
-static int
-chmap_put_hash(
+static int chmap_put_hash(
     struct chmap * map,
     const uint64_t hash,
     const void * item
 );
 
-static size_t * 
-init_bais_stack(
+static size_t * init_bais_stack(
     size_t numentries
 );
 
-static inline void *
-get_ba_ptr(
+static inline void * get_ba_ptr(
     struct chmap * map,
     size_t index
 );
 
-static inline void * 
-get_ba_ptr_arr(
+static inline void * get_ba_ptr_arr(
     void * ba,
     size_t isize,
     size_t index
@@ -56,8 +63,7 @@ get_ba_ptr_arr(
  * Takes an entry and a location and tries to insert it at the location, performing
  * robinhood shuffling if necessary to maintain low PSL or whatever.
  */
-static void
-bubble_up(struct chmap * map, const struct entry inentry, size_t ind) {
+static void bubble_up(struct chmap * map, const struct entry inentry, size_t ind) {
     struct entry grabbed_entry = inentry;
 
     do {
@@ -84,9 +90,7 @@ bubble_up(struct chmap * map, const struct entry inentry, size_t ind) {
 /**
  * Given a chmap and a key, returns the index where that key should be inserted and the PSL.
  */
-static struct psl_ind
-address_array(struct chmap *map, const uint64_t key) 
-{
+static struct probe_sequence probe_array(struct chmap *map, const uint64_t key) {
     uint64_t working_index = key % map->array_size;
     size_t psl = 0;
 
@@ -98,13 +102,13 @@ address_array(struct chmap *map, const uint64_t key)
         psl++;
     }
 
-    return (struct psl_ind){ working_index, psl};
+    return (struct probe_sequence){ working_index, psl};
 }
 
-static struct entry *
-init_translation_array(
-    const size_t numentries
-) {
+/**
+ * Initializes an array of empty entries, with size `numentries`.
+ */
+static struct entry * init_translation_array(const size_t numentries) {
     struct entry * entries = calloc(numentries, sizeof(struct entry));
     struct entry empty = {
         .has_entry = 0,
@@ -117,9 +121,10 @@ init_translation_array(
     return entries;
 }
 
-static void
-grow_map(struct chmap * map) 
-{
+/**
+ * Given a map, increases its size by ARRAY_GROW_FACTOR and copies the entries and data from the backing array over.
+ */
+static void grow_map(struct chmap * map) {
     size_t new_size = map->array_size * ARRAY_GROW_FACTOR;
     size_t old_size = map->array_size;
 
@@ -141,7 +146,6 @@ grow_map(struct chmap * map)
     map->bais_idx = new_size - 1;
     map->bais = new_bais;
 
-    debug_map_params(map);
     for (size_t i = 0; i < old_size; i++) {
         struct entry entry = old_translation_array[i];
         if (entry.has_entry) {
@@ -155,10 +159,10 @@ grow_map(struct chmap * map)
     free(old_bais);
 }
 
-static size_t * 
-init_bais_stack(
-    size_t numentries
-) {
+/**
+ * Initializes a stack of backing arrays, where the top entry is 0, and the bottom entry is `numentries - 1`.
+ */
+static size_t * init_bais_stack(size_t numentries) {
     size_t * stack = calloc(numentries, sizeof(size_t));
 
     for (size_t i = 0; i < numentries; i++) {
@@ -168,10 +172,10 @@ init_bais_stack(
     return stack;
 }
 
-static size_t
-pop_bais_idx(
-    struct chmap * map
-) {
+/**
+ * Pops an entry off of a backing array index stack from a given map.
+ */
+static size_t pop_bais_idx(struct chmap * map) {
     size_t bais_idx = map->bais_idx;
 
     #ifdef DEBUG
@@ -183,18 +187,19 @@ pop_bais_idx(
     return ret;
 }
 
-static void
-push_bais_idx(
-    struct chmap * map,
-    size_t val
-) {
+/**
+ * Pushes an entry onto a backing array index stack from a given array.
+ */
+static void push_bais_idx(struct chmap * map, size_t val) {
     map->bais_idx++;
 
     map->bais[map->bais_idx] = val;
 }
 
-static inline void * 
-get_ba_ptr_arr(
+/**
+ * Given a pointer to a backing array, the item size, and an index, gets the pointer to the item at `index`.
+ */
+static inline void * get_ba_ptr_arr(
     void * ba,
     size_t isize,
     size_t index
@@ -202,19 +207,17 @@ get_ba_ptr_arr(
     return ((char*)ba) + index * isize; 
 }
 
-static inline void *
-get_ba_ptr(
-    struct chmap * map,
-    size_t index
-) {
+/**
+ * Given a map and an index, gets the pointer to the item at `index`.
+ */
+static inline void * get_ba_ptr(struct chmap * map, size_t index) {
     return ((char*)map->backing_array) + index * map->isize;
 }
 
-struct chmap *
-chmap_new(
-    const size_t item_size,
-    const size_t key_size
-) {
+/**
+ * Creates a new, empty hashmap with the given item size and key size.
+ */
+struct chmap * chmap_new(const size_t item_size, const size_t key_size) {
     void * backing_array = calloc(DEFAULT_BACKING_ARRAY_LENGTH, sizeof(item_size));
     struct chmap * map = malloc(sizeof(struct chmap));
 
@@ -230,14 +233,16 @@ chmap_new(
     return map;
 }
 
-static int
-chmap_put_hash(
+/**
+ * Given a map, a hash, and a pointer to an item, puts the item in the map with key `hash`.
+ */
+static int chmap_put_hash(
     struct chmap * map,
     const uint64_t hash,
     const void * item
 ) {
-    struct psl_ind insert_at = address_array(map, hash);
-    const struct entry looking_at = map->translation_array[insert_at.index];
+    struct probe_sequence probe = probe_array(map, hash);
+    const struct entry looking_at = map->translation_array[probe.index];
     const size_t itemsize = map->isize;
 
     if (looking_at.has_entry == 0) {
@@ -246,13 +251,13 @@ chmap_put_hash(
         map->used_size++;
         struct entry new_entry = {
             1,
-            insert_at.psl,
+            probe.psl,
             .backing_array_key = bak,
             .keyword = hash,
         };
 
         
-        map->translation_array[insert_at.index] = new_entry;
+        map->translation_array[probe.index] = new_entry;
 
         void * ba_ptr = get_ba_ptr(map, bak);
 
@@ -270,7 +275,7 @@ chmap_put_hash(
         map->used_size++;
         struct entry new_entry = {
             1,
-            insert_at.psl,
+            probe.psl,
             .backing_array_key = bak,
             .keyword = hash,
         };
@@ -279,14 +284,13 @@ chmap_put_hash(
 
         memcpy(ba_ptr, item, itemsize);
 
-        bubble_up(map, new_entry, insert_at.index);
+        bubble_up(map, new_entry, probe.index);
     }
 
     return 0;
 }
 
-int
-chmap_put(
+int chmap_put(
     struct chmap * map,
     const void * key,
     const void * item
@@ -304,11 +308,7 @@ chmap_put(
     return chmap_put_hash(map, outword, item);
 }
 
-const void *
-chmap_get(
-    struct chmap * map,
-    const void * key
-) {
+void * chmap_get(struct chmap * map, const void * key) {
     uint64_t outword;
 
     siphash(key, map->ksize, SIPHASH_KEY, (uint8_t*)&outword, 8);
@@ -353,20 +353,14 @@ void chmap_del(struct chmap * map, const void * key) {
     map->used_size--;
 }
 
-void 
-chmap_free(
-    struct chmap * map
-) {
+void chmap_free(struct chmap * map) {
     free(map->bais);
     free(map->translation_array);
     free(map->backing_array);
     free(map);
 }
 
-void
-debug_map(
-    struct chmap * map
-) {
+void debug_map(struct chmap * map) {
     for (size_t i = 0; i < map->array_size; i++) {
         struct entry entry = map->translation_array[i];
 
@@ -380,10 +374,7 @@ debug_map(
     }
 }
 
-void
-debug_map_params(
-    struct chmap * map
-) {
+void debug_map_params(struct chmap * map) {
     printf("item_size: %lu\nused_size: %lu\narray_size: %lu\ntarray_addr: %p\nbarray_addr: %p\n",
         map->isize,
         map->used_size,
