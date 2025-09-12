@@ -1,6 +1,5 @@
 #include "../unity/src/unity.h"
-#include "../src/chmap.h"
-#include <stdint.h>
+#include "../chmap_onefile.h"
 
 
 void setUp(void) {}

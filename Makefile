@@ -28,12 +28,11 @@ PATHR = build/results/
 BUILD_PATHS = $(PATHB) $(PATHD) $(PATHO) $(PATHR) $(PATHBIN)
 
 SRCT = $(wildcard $(PATHT)*.c)
-FSANITIZE = -fsanitize=address
 
-COMPILE=gcc -c $(FSANITIZE)
-LINK=gcc $(FSANITIZE) bin/siphash.o
+COMPILE=gcc -c
+LINK=gcc
 DEPEND=gcc -MM -MG -MF
-CFLAGS=-I. -I$(PATHU) -I$(PATHS) -DTEST -g 
+CFLAGS=-I. -I$(PATHU) -DTEST -g 
 
 RESULTS = $(patsubst $(PATHT)test_%.c,$(PATHR)test_%.txt,$(SRCT) )
 
@@ -41,7 +40,7 @@ PASSED = `grep -s PASS $(PATHR)*.txt`
 FAIL = `grep -s -E 'FAIL|Aborted|core dumped' $(PATHR)*.txt`
 IGNORE = `grep -s IGNORE $(PATHR)*.txt`
 
-test: $(BUILD_PATHS) siphash $(RESULTS)
+test: $(BUILD_PATHS) $(RESULTS)
 	@echo "-----------------------\nIGNORES:\n-----------------------"
 	@echo "$(IGNORE)"
 	@echo "-----------------------\nFAILURES:\n-----------------------"
@@ -50,13 +49,10 @@ test: $(BUILD_PATHS) siphash $(RESULTS)
 	@echo "$(PASSED)"
 	@echo "\nDONE"
 
-siphash:
-	$(COMPILE) $(CFLAGS) src/siphash.c -o bin/siphash.o
-
 $(PATHR)%.txt: $(PATHB)%.$(TARGET_EXTENSION)
 	-./$< -v -t > $@ 2>&1
 
-$(PATHB)test_%.$(TARGET_EXTENSION): $(PATHO)test_%.o $(PATHO)chmap.o $(PATHO)unity.o #$(PATHD)Test%.d
+$(PATHB)test_%.$(TARGET_EXTENSION): $(PATHO)test_%.o $(PATHO)unity.o #$(PATHD)Test%.d
 	$(LINK) -o $@ $^
 
 $(PATHO)%.o:: $(PATHT)%.c
