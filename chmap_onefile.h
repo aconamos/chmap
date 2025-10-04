@@ -506,35 +506,6 @@ static inline void * get_ba_ptr_arr(
 }
 
 /**
- * Given a map and an index, gets the pointer to the item at `index`.
- */
-static inline void * get_ba_ptr(struct chmap * map, size_t index) {
-    return ((char*)map->backing_array) + index * map->isize;
-}
-
-
-/* --- definitions of public functions --- */
-
-/**
- * Creates a new, empty hashmap with the given item size and key size.
- */
-struct chmap * chmap_new(const size_t item_size, const size_t key_size) {
-    void * backing_array = calloc(DEFAULT_BACKING_ARRAY_LENGTH, sizeof(item_size));
-    struct chmap * map = malloc(sizeof(struct chmap));
-
-    map->bais_idx = DEFAULT_BACKING_ARRAY_LENGTH - 1;
-    map->ksize = key_size;
-    map->isize = item_size;
-    map->used_size = 0;
-    map->array_size = DEFAULT_BACKING_ARRAY_LENGTH;
-    map->translation_array = init_translation_array(DEFAULT_BACKING_ARRAY_LENGTH);
-    map->bais = init_bais_stack(DEFAULT_BACKING_ARRAY_LENGTH);
-    map->backing_array = backing_array;
-
-    return map;
-}
-
-/**
  * Given a map, a hash, and a pointer to an item, puts the item in the map with key `hash`.
  */
 static int chmap_put_hash(
@@ -589,6 +560,32 @@ static int chmap_put_hash(
     }
 
     return 0;
+}
+
+/**
+ * Given a map and an index, gets the pointer to the item at `index`.
+ */
+static inline void * get_ba_ptr(struct chmap * map, size_t index) {
+    return ((char*)map->backing_array) + index * map->isize;
+}
+
+
+/* --- definitions of public functions --- */
+
+struct chmap * chmap_new(const size_t item_size, const size_t key_size) {
+    void * backing_array = calloc(DEFAULT_BACKING_ARRAY_LENGTH, sizeof(item_size));
+    struct chmap * map = malloc(sizeof(struct chmap));
+
+    map->bais_idx = DEFAULT_BACKING_ARRAY_LENGTH - 1;
+    map->ksize = key_size;
+    map->isize = item_size;
+    map->used_size = 0;
+    map->array_size = DEFAULT_BACKING_ARRAY_LENGTH;
+    map->translation_array = init_translation_array(DEFAULT_BACKING_ARRAY_LENGTH);
+    map->bais = init_bais_stack(DEFAULT_BACKING_ARRAY_LENGTH);
+    map->backing_array = backing_array;
+
+    return map;
 }
 
 int chmap_put(
